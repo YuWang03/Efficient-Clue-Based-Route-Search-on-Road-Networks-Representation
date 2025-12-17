@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAB Algorithm Visualization - 分支定界路徑搜尋</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white; padding: 15px 20px; text-align: center;
+        }
+        .header h1 { font-size: 1.4em; }
+        .header p { font-size: 0.85em; opacity: 0.9; }
+        .main-container { display: flex; height: calc(100vh - 70px); }
+        .left-panel {
+            width: 420px; background: white; overflow-y: auto;
+            border-right: 2px solid #dee2e6; padding: 15px;
+        }
+        #map { flex: 1; }
+        .panel {
+            background: #fafafa; margin-bottom: 15px; padding: 15px;
+            border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .panel h3 {
+            color: #2c3e50; font-size: 1em; margin-bottom: 10px;
+            padding-bottom: 8px; border-bottom: 2px solid #3498db;
+        }
+        .info-row { display: flex; justify-content: space-between; padding: 5px 0; }
+        .info-label { color: #666; }
+        .info-value { font-weight: bold; color: #2c3e50; }
+        .clue-badge {
+            display: inline-block; background: #3498db; color: white;
+            padding: 3px 10px; border-radius: 12px; font-size: 0.85em; margin: 2px;
+        }
+        .clue-input-group {
+            background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 12px; margin-bottom: 10px;
+        }
+        .clue-input-group label { display: block; font-size: 0.8em; color: #666; margin-bottom: 4px; }
+        .clue-input-group input, .clue-input-group select {
+            width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 0.9em; margin-bottom: 6px;
+        }
+        .clue-input-row { display: flex; gap: 10px; }
+        .clue-input-row > div { flex: 1; }
+        .step-table { width: 100%; border-collapse: collapse; font-size: 0.8em; margin-top: 10px; }
+        .step-table th, .step-table td {
+            border: 1px solid #ddd; padding: 6px; text-align: center;
+        }
+        .step-table th { background: #3498db; color: white; }
+        .step-table .accepted { background: #d4edda; border-left: 4px solid #27ae60; }
+        .step-table .rejected { background: #f8d7da; border-left: 4px solid #e74c3c; }
+        .step-table .init { background: #e7f1ff; border-left: 4px solid #3498db; }
+        .step-table .terminate { background: #fff3cd; border-left: 4px solid #f39c12; }
+        .legend-item { display: flex; align-items: center; margin: 5px 0; }
+        .legend-dot {
+            width: 14px; height: 14px; border-radius: 50%; margin-right: 8px;
+            border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .path-step {
+            display: flex; align-items: center; padding: 8px;
+            margin: 5px 0; background: #e8f4f8; border-radius: 6px;
+            border-left: 4px solid #3498db; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .path-step:hover { transform: translateX(5px); background: #d4edda; }
+        .path-step.optimal { border-left-color: #27ae60; background: #d4edda; }
+        .step-num {
+            width: 24px; height: 24px; background: #3498db; color: white;
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; margin-right: 10px; font-size: 0.8em;
+        }
+        .path-step.optimal .step-num { background: #27ae60; }
+        .btn {
+            background: #3498db; color: white; border: none;
+            padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 3px;
+            font-size: 0.9em;
+        }
+        .btn:hover { background: #2980b9; }
+        .btn-success { background: #27ae60; }
+        .btn-success:hover { background: #219a52; }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-block { width: 100%; margin-top: 10px; }
+        .ub-display {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white; padding: 10px; border-radius: 6px;
+            text-align: center; margin-top: 10px;
+        }
+        .ub-display .value { font-size: 1.5em; font-weight: bold; }
+        .ub-display .label { font-size: 0.8em; opacity: 0.9; }
+        .result-banner {
+            padding: 15px; border-radius: 8px; margin-bottom: 15px;
+        }
+        .result-banner.success {
+            background: linear-gradient(135deg, rgba(39, 174, 96, 0.15), rgba(46, 204, 113, 0.15));
+            border: 1px solid #27ae60;
+        }
+        .result-banner.fail {
+            background: linear-gradient(135deg, rgba(243, 156, 18, 0.15), rgba(230, 126, 34, 0.15));
+            border: 1px solid #f39c12;
+        }
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.95); display: flex;
+            align-items: center; justify-content: center; z-index: 1000;
+            flex-direction: column; color: white;
+        }
+        .loading-spinner {
+            width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: #3498db; border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .tabs { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 10px; }
+        .tab {
+            padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+            margin-bottom: -2px; transition: all 0.2s;
+        }
+        .tab:hover { background: #f0f0f0; }
+        .tab.active { border-bottom-color: #3498db; color: #3498db; font-weight: bold; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .keyword-list { max-height: 200px; overflow-y: auto; }
+        .keyword-item {
+            display: inline-block; background: #e8f4f8; padding: 3px 8px;
+            margin: 2px; border-radius: 4px; font-size: 0.8em; cursor: pointer;
+        }
+        .keyword-item:hover { background: #3498db; color: white; }
+    </style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div id="loadingText">載入圖形資料...</div>
+</div>
+
+<div class="header">
+    <h1> Algorithm 3: BAB - 分支定界線索路徑搜尋</h1>
+    <p>Branch and Bound | <span id="headerResult">請執行查詢</span></p>
+</div>
+
+<div class="main-container">
+<div class="left-panel">
+    <!-- Query Panel -->
+    <div class="panel">
+        <h3>查詢設定</h3>
+        <div class="clue-input-group">
+            <label>起點 (Source Vertex)</label>
+            <select id="sourceSelect">
+                <option value="">載入中...</option>
+            </select>
+        </div>
+        <div id="cluesContainer"></div>
+        <button class="btn" onclick="addClueInput()">+ 新增線索</button>
+        <button class="btn btn-success btn-block" onclick="runBAB()">▶ 執行 BAB 演算法</button>
+    </div>
+
+    <!-- Result Panel -->
+    <div class="panel" id="resultPanel" style="display:none;">
+        <h3>搜尋結果</h3>
+        <div id="resultBanner" class="result-banner"></div>
+        <div id="optimalPath"></div>
+    </div>
+
+    <!-- UB Display -->
+    <div class="panel" id="ubPanel" style="display:none;">
+        <h3>演算法狀態</h3>
+        <div class="ub-display">
+            <div class="label">Upper Bound (UB)</div>
+            <div class="value" id="ubValue">∞</div>
+        </div>
+        <div style="margin-top:10px;">
+            <div class="info-row"><span class="info-label">搜尋步數</span><span class="info-value" id="stepCount">0</span></div>
+            <div class="info-row"><span class="info-label">執行時間</span><span class="info-value" id="execTime">-</span></div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="panel">
+        <h3>圖例</h3>
+        <div class="legend-item"><div class="legend-dot" style="background:#e74c3c;"></div>起點 (v<sub>q</sub>)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#27ae60;"></div>最優路徑節點</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#9b59b6;"></div>當前搜尋節點</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f39c12;"></div>候選節點</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3498db;width:30px;height:4px;border-radius:2px;"></div>最優路徑</div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="panel">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('steps')">搜尋步驟</div>
+            <div class="tab" onclick="switchTab('keywords')">可用關鍵字</div>
+        </div>
+        
+        <div id="stepsTab" class="tab-content active">
+            <button class="btn btn-success" onclick="animateSteps()">▶ 動畫演示</button>
+            <button class="btn" onclick="resetAnimation()">⟲ 重置</button>
+            <div id="stepTableContainer" style="max-height:300px;overflow:auto;margin-top:10px;">
+                <table class="step-table" id="stepTable">
+                    <thead>
+                        <tr><th>步驟</th><th>動作</th><th>stackV</th><th>UB</th><th>狀態</th></tr>
+                    </thead>
+                    <tbody id="stepTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="keywordsTab" class="tab-content">
+            <div class="keyword-list" id="keywordList"></div>
+        </div>
+    </div>
+</div>
+
+<div id="map"></div>
+</div>
+
+<script>
+// ==================== Global Variables ====================
+let map, graphData;
+let nodes = new Map();
+let adjacencyList = new Map();
+let keywordIndex = new Map();
+let distanceCache = new Map();
+let searchSteps = [];
+let pathMarkers = [];
+let pathLines = [];
+let animIndex = 0;
+let animInterval = null;
+
+// ==================== Map Initialization ====================
+function initMap() {
+    map = L.map('map').setView([25.016, 121.543], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+}
+
+function createIcon(color, size) {
+    return L.divIcon({
+        className: 'custom-icon',
+        html: `<div style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2]
+    });
+}
+
+// ==================== Data Loading ====================
+async function loadGraphData() {
+    try {
+        document.getElementById('loadingText').textContent = '載入圖形資料...';
+        const response = await fetch('graph_data.json');
+        if (!response.ok) {
+            throw new Error(`Failed to load graph_data.json (status ${response.status})`);
+        }
+        // Attempt to parse JSON; if the server returned HTML (e.g., 404 page), this will throw.
+        graphData = await response.json();
+        
+        document.getElementById('loadingText').textContent = '建立資料結構...';
+        
+        for (const node of graphData.nodes) {
+            nodes.set(node.id, node);
+            adjacencyList.set(node.id, []);
+        }
+        
+        for (const edge of graphData.edges) {
+            adjacencyList.get(edge.from)?.push(edge);
+            adjacencyList.get(edge.to)?.push({from: edge.to, to: edge.from, weight: edge.weight});
+        }
+        
+        for (const [kw, nodeIds] of Object.entries(graphData.keywordIndex)) {
+            keywordIndex.set(kw.toLowerCase(), new Set(nodeIds));
+        }
+        
+        document.getElementById('loadingText').textContent = '繪製路網...';
+        drawRoadNetwork();
+        populateSourceSelect();
+        populateKeywords();
+        addClueInput();
+        addClueInput();
+        
+        document.getElementById('loadingOverlay').style.display = 'none';
+    } catch (error) {
+        document.getElementById('loadingText').textContent = 'Error: ' + error.message;
+        console.error(error);
+    }
+}
+
+function drawRoadNetwork() {
+    const lines = [];
+    const addedEdges = new Set();
+    for (const edge of graphData.edges) {
+        const key = Math.min(edge.from, edge.to) + '-' + Math.max(edge.from, edge.to);
+        if (!addedEdges.has(key)) {
+            addedEdges.add(key);
+            const from = nodes.get(edge.from);
+            const to = nodes.get(edge.to);
+            if (from && to) lines.push([[from.lat, from.lon], [to.lat, to.lon]]);
+        }
+    }
+    L.polyline(lines, { color: '#bdc3c7', weight: 1 }).addTo(map);
+}
+
+function populateSourceSelect() {
+    const select = document.getElementById('sourceSelect');
+    select.innerHTML = '<option value="">選擇起點...</option>';
+    const connected = [];
+    for (const [id, edges] of adjacencyList) {
+        if (edges.length > 0) connected.push(id);
+    }
+    connected.slice(0, 300).forEach(id => {
+        const node = nodes.get(id);
+        const kws = node.keywords?.slice(0, 2).join(', ') || '無關鍵字';
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = `${id} (${kws})`;
+        select.appendChild(opt);
+    });
+}
+
+function populateKeywords() {
+    const container = document.getElementById('keywordList');
+    const stats = [];
+    for (const [kw, nodeIds] of keywordIndex) {
+        stats.push({ keyword: kw, count: nodeIds.size });
+    }
+    stats.sort((a, b) => b.count - a.count);
+    
+    container.innerHTML = stats.slice(0, 50).map(s => 
+        `<span class="keyword-item" onclick="fillKeyword('${s.keyword}')">${s.keyword} (${s.count})</span>`
+    ).join('');
+}
+
+function fillKeyword(kw) {
+    const inputs = document.querySelectorAll('.clue-keyword');
+    for (const input of inputs) {
+        if (!input.value) {
+            input.value = kw;
+            break;
+        }
+    }
+}
+
+// ==================== UI Functions ====================
+let clueCount = 0;
+function addClueInput() {
+    clueCount++;
+    const container = document.getElementById('cluesContainer');
+    const div = document.createElement('div');
+    div.className = 'clue-input-group';
+    div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <strong style="color:#3498db;">線索 ${clueCount}</strong>
+            <button class="btn btn-danger" style="padding:2px 8px;font-size:0.8em;" onclick="this.parentElement.parentElement.remove()">✕</button>
+        </div>
+        <label>關鍵字 (w)</label>
+        <input type="text" class="clue-keyword" placeholder="例: footway, crossing">
+        <div class="clue-input-row">
+            <div>
+                <label>距離 d (公尺)</label>
+                <input type="number" class="clue-distance" value="150" min="1">
+            </div>
+            <div>
+                <label>容忍度 ε</label>
+                <input type="number" class="clue-epsilon" value="0.5" min="0.1" max="1" step="0.1">
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`.tab:nth-child(${tabName === 'steps' ? 1 : 2})`).classList.add('active');
+    document.getElementById(tabName + 'Tab').classList.add('active');
+}
+
+function focusNode(lat, lon, name) {
+    map.setView([lat, lon], 17);
+    L.popup().setLatLng([lat, lon]).setContent(`<b>${name}</b>`).openOn(map);
+}
+
+// ==================== Distance Calculation ====================
+class MinHeap {
+    constructor() { this.heap = []; }
+    insert(item) { this.heap.push(item); this.bubbleUp(this.heap.length - 1); }
+    extractMin() {
+        if (this.heap.length === 0) return null;
+        const min = this.heap[0];
+        const last = this.heap.pop();
+        if (this.heap.length > 0) { this.heap[0] = last; this.bubbleDown(0); }
+        return min;
+    }
+    isEmpty() { return this.heap.length === 0; }
+    bubbleUp(i) {
+        while (i > 0) {
+            const p = Math.floor((i - 1) / 2);
+            if (this.heap[p].dist <= this.heap[i].dist) break;
+            [this.heap[p], this.heap[i]] = [this.heap[i], this.heap[p]];
+            i = p;
+        }
+    }
+    bubbleDown(i) {
+        const n = this.heap.length;
+        while (true) {
+            let smallest = i;
+            const l = 2 * i + 1, r = 2 * i + 2;
+            if (l < n && this.heap[l].dist < this.heap[smallest].dist) smallest = l;
+            if (r < n && this.heap[r].dist < this.heap[smallest].dist) smallest = r;
+            if (smallest === i) break;
+            [this.heap[smallest], this.heap[i]] = [this.heap[i], this.heap[smallest]];
+            i = smallest;
+        }
+    }
+}
+
+function getNetworkDistance(from, to) {
+    const key = `${from}-${to}`;
+    if (distanceCache.has(key)) return distanceCache.get(key);
+    if (from === to) return 0;
+    
+    const pq = new MinHeap();
+    const distances = new Map();
+    const visited = new Set();
+    
+    pq.insert({ dist: 0, node: from });
+    distances.set(from, 0);
+    
+    while (!pq.isEmpty()) {
+        const { dist, node } = pq.extractMin();
+        if (node === to) {
+            distanceCache.set(key, dist);
+            distanceCache.set(`${to}-${from}`, dist);
+            return dist;
+        }
+        if (visited.has(node)) continue;
+        visited.add(node);
+        
+        for (const edge of adjacencyList.get(node) || []) {
+            if (!visited.has(edge.to)) {
+                const newDist = dist + edge.weight;
+                if (newDist < (distances.get(edge.to) || Infinity)) {
+                    distances.set(edge.to, newDist);
+                    pq.insert({ dist: newDist, node: edge.to });
+                }
+            }
+        }
+    }
+    distanceCache.set(key, Infinity);
+    return Infinity;
+}
+
+// 獲取兩點之間的完整路徑（所有中間節點）
+function getFullPath(from, to) {
+    if (from === to) return [from];
+    
+    const pq = new MinHeap();
+    const distances = new Map();
+    const previous = new Map();
+    const visited = new Set();
+    
+    pq.insert({ dist: 0, node: from });
+    distances.set(from, 0);
+    
+    while (!pq.isEmpty()) {
+        const { dist, node } = pq.extractMin();
+        
+        if (node === to) {
+            // 重建路徑
+            const path = [];
+            let current = to;
+            while (current !== undefined) {
+                path.unshift(current);
+                current = previous.get(current);
+            }
+            return path;
+        }
+        
+        if (visited.has(node)) continue;
+        visited.add(node);
+        
+        for (const edge of adjacencyList.get(node) || []) {
+            if (!visited.has(edge.to)) {
+                const newDist = dist + edge.weight;
+                if (newDist < (distances.get(edge.to) || Infinity)) {
+                    distances.set(edge.to, newDist);
+                    previous.set(edge.to, node);
+                    pq.insert({ dist: newDist, node: edge.to });
+                }
+            }
+        }
+    }
+    
+    return []; // 無法到達
+}
+
+function calculateMatchingDistance(networkDist, clue) {
+    return Math.abs(networkDist - clue.distance) / (clue.epsilon * clue.distance);
+}
+
+// ==================== findNext Procedure ====================
+function findNext(fromVertex, clue, theta, excluded) {
+    const candidates = keywordIndex.get(clue.keyword.toLowerCase()) || new Set();
+    if (candidates.size === 0) return { found: false };
+    
+    const minDist = clue.distance * (1 - clue.epsilon);
+    const maxDist = clue.distance * (1 + clue.epsilon);
+    let best = { found: false, vertex: -1, matchingDistance: Infinity, networkDistance: Infinity };
+    
+    for (const candidate of candidates) {
+        if (excluded.has(candidate)) continue;
+        const networkDist = getNetworkDistance(fromVertex, candidate);
+        if (networkDist < minDist || networkDist > maxDist || networkDist === Infinity) continue;
+        
+        const matchDist = calculateMatchingDistance(networkDist, clue);
+        if (matchDist >= theta && matchDist < best.matchingDistance) {
+            best = { found: true, vertex: candidate, matchingDistance: matchDist, networkDistance: networkDist };
+        }
+    }
+    return best;
+}
+
+// ==================== Algorithm 3: BAB ====================
+function runBAB() {
+    const sourceVertex = parseInt(document.getElementById('sourceSelect').value);
+    if (!sourceVertex) { alert('請選擇起點'); return; }
+    
+    const clueGroups = document.querySelectorAll('.clue-input-group');
+    const clues = [];
+    for (const group of clueGroups) {
+        const keyword = group.querySelector('.clue-keyword')?.value.toLowerCase().trim();
+        const distance = parseFloat(group.querySelector('.clue-distance')?.value);
+        const epsilon = parseFloat(group.querySelector('.clue-epsilon')?.value);
+        if (keyword && !isNaN(distance) && !isNaN(epsilon)) {
+            clues.push({ keyword, distance, epsilon });
+        }
+    }
+    
+    if (clues.length === 0) { alert('請至少新增一個線索'); return; }
+    
+    console.log('Running BAB:', { sourceVertex, clues });
+    const startTime = performance.now();
+    
+    // Reset
+    searchSteps = [];
+    clearVisualization();
+    
+    // Algorithm 3 implementation
+    const stackV = [sourceVertex];
+    const stackD = [];
+    let theta = 0.0;
+    let upperBound = Infinity;
+    let bestPath = [];
+    let bestMatchingDistance = Infinity;
+    const k = clues.length;
+    let stepCounter = 0;
+    
+    const excludedAtLevel = new Map();
+    for (let i = 0; i <= k; i++) excludedAtLevel.set(i, new Set());
+    
+    // Line 1-2: Initialize
+    searchSteps.push({
+        step: ++stepCounter, action: 'INIT', stackV: [...stackV], stackD: [...stackD],
+        ub: upperBound, candidate: null, accepted: true,
+        reason: 'Line 1-2: 初始化 stackV, stackD, θ=0; 將 v_q 推入 stackV'
+    });
+    
+    let iterations = 0;
+    while (stackV.length > 0 && iterations < 5000) {
+        iterations++;
+        const level = stackV.length;
+        if (level > k) { stackV.pop(); if (stackD.length > 0) stackD.pop(); continue; }
+        
+        const currentVertex = stackV[stackV.length - 1];
+        const currentClue = clues[level - 1];
+        const excluded = excludedAtLevel.get(level);
+        
+        // Line 5: findNext
+        const result = findNext(currentVertex, currentClue, theta, excluded);
+        
+        if (result.found) {
+            if (result.matchingDistance > upperBound) {
+                searchSteps.push({
+                    step: ++stepCounter, action: 'PRUNE', stackV: [...stackV], stackD: [...stackD],
+                    ub: upperBound, candidate: result.vertex, candidateDm: result.matchingDistance, accepted: false,
+                    reason: `Line 15-17: d_m=${result.matchingDistance.toFixed(3)} > UB=${upperBound.toFixed(3)}, 剪枝回溯`
+                });
+                excluded.add(result.vertex);
+                stackV.pop();
+                if (stackD.length > 0) theta = stackD.pop(); else theta = 0;
+                for (let l = level + 1; l <= k; l++) excludedAtLevel.get(l).clear();
+                continue;
+            }
+            
+            searchSteps.push({
+                step: ++stepCounter, action: 'PUSH', stackV: [...stackV], stackD: [...stackD],
+                ub: upperBound, candidate: result.vertex, candidateDm: result.matchingDistance, accepted: true,
+                reason: `Line 6-8: 找到 v_${level}=${result.vertex}, d_m=${result.matchingDistance.toFixed(3)}, θ←0`
+            });
+            
+            theta = 0.0;
+            stackV.push(result.vertex);
+            stackD.push(result.matchingDistance);
+            
+            if (stackV.length === k + 1) {
+                const maxDm = Math.max(...stackD);
+                if (maxDm <= upperBound) {
+                    upperBound = maxDm;
+                    bestPath = [...stackV];
+                    bestMatchingDistance = maxDm;
+                    searchSteps.push({
+                        step: ++stepCounter, action: 'UPDATE_UB', stackV: [...stackV], stackD: [...stackD],
+                        ub: upperBound, candidate: null, accepted: true,
+                        reason: `Line 10-12: 找到可行路徑! UB ← ${upperBound.toFixed(4)}`
+                    });
+                } else {
+                    searchSteps.push({
+                        step: ++stepCounter, action: 'FEASIBLE', stackV: [...stackV], stackD: [...stackD],
+                        ub: upperBound, candidate: null, accepted: false,
+                        reason: `Line 10: max{stackD}=${maxDm.toFixed(3)} > UB, 不更新`
+                    });
+                }
+                
+                excluded.add(stackV.pop());
+                stackD.pop();
+                if (stackV.length > 1) {
+                    excludedAtLevel.get(level - 1).add(stackV.pop());
+                    if (stackD.length > 0) theta = stackD.pop();
+                }
+                excludedAtLevel.get(level).clear();
+            }
+        } else {
+            searchSteps.push({
+                step: ++stepCounter, action: 'BACKTRACK', stackV: [...stackV], stackD: [...stackD],
+                ub: upperBound, candidate: null, accepted: false,
+                reason: `Line 15-17: 找不到 v_${level} (w="${currentClue.keyword}"), 回溯`
+            });
+            stackV.pop();
+            if (stackD.length > 0) theta = stackD.pop();
+            excludedAtLevel.get(level).clear();
+            for (let l = level + 1; l <= k; l++) excludedAtLevel.get(l).clear();
+        }
+    }
+    
+    searchSteps.push({
+        step: ++stepCounter, action: 'DONE', stackV: bestPath, stackD: [],
+        ub: bestMatchingDistance, candidate: null, accepted: bestPath.length > 0,
+        reason: bestPath.length > 0 ? `Line 18: 返回 FP_bab, d_m=${bestMatchingDistance.toFixed(4)}` : 'Line 18: 無可行路徑'
+    });
+    
+    const execTime = performance.now() - startTime;
+    
+    // Update UI
+    displayResults(bestPath, bestMatchingDistance, clues, execTime);
+    displayStepTable();
+    visualizePath(bestPath, sourceVertex);
+    
+    document.getElementById('resultPanel').style.display = 'block';
+    document.getElementById('ubPanel').style.display = 'block';
+}
+
+// ==================== Visualization ====================
+function clearVisualization() {
+    pathMarkers.forEach(m => map.removeLayer(m));
+    pathLines.forEach(l => map.removeLayer(l));
+    pathMarkers = [];
+    pathLines = [];
+}
+
+function visualizePath(bestPath, sourceVertex) {
+    clearVisualization();
+    
+    // Source marker
+    const sourceNode = nodes.get(sourceVertex);
+    if (sourceNode) {
+        const m = L.marker([sourceNode.lat, sourceNode.lon], {icon: createIcon('#e74c3c', 20)})
+            .addTo(map).bindPopup(`<b>起點</b><br>Node-${sourceVertex}`);
+        pathMarkers.push(m);
+    }
+    
+    if (bestPath.length > 1) {
+        // 重建完整路徑（包含所有中間節點）
+        console.log('開始重建完整路徑，bestPath:', bestPath);
+        const completePathNodes = [];
+        for (let i = 0; i < bestPath.length - 1; i++) {
+            const segmentPath = getFullPath(bestPath[i], bestPath[i + 1]);
+            console.log(`段落 ${i}: 從 ${bestPath[i]} 到 ${bestPath[i + 1]}, 找到 ${segmentPath.length} 個節點`);
+            if (segmentPath.length === 0) {
+                console.warn(`無法找到從 ${bestPath[i]} 到 ${bestPath[i + 1]} 的路徑`);
+                continue;
+            }
+            // 添加路徑節點，避免重複添加連接點
+            if (i === 0) {
+                completePathNodes.push(...segmentPath);
+            } else {
+                completePathNodes.push(...segmentPath.slice(1));
+            }
+        }
+        
+        // 繪製完整路徑（沿著實際道路）
+        console.log('完整路徑節點總數:', completePathNodes.length);
+        const pathCoords = completePathNodes.map(id => {
+            const n = nodes.get(id);
+            return n ? [n.lat, n.lon] : null;
+        }).filter(c => c);
+        console.log('路徑座標點數:', pathCoords.length);
+        
+        if (pathCoords.length > 0) {
+            const line = L.polyline(pathCoords, {color: '#27ae60', weight: 5, opacity: 0.8}).addTo(map);
+            pathLines.push(line);
+            
+            // 標記關鍵 POI 節點（不包括起點）
+            for (let i = 1; i < bestPath.length; i++) {
+                const n = nodes.get(bestPath[i]);
+                if (n) {
+                    const m = L.marker([n.lat, n.lon], {icon: createIcon('#27ae60', 16)})
+                        .addTo(map).bindPopup(`<b>匹配 ${i}</b><br>Node-${bestPath[i]}`);
+                    pathMarkers.push(m);
+                }
+            }
+            
+            // 可選：標記所有中間節點（小點）
+            for (const nodeId of completePathNodes) {
+                if (!bestPath.includes(nodeId)) {
+                    const n = nodes.get(nodeId);
+                    if (n) {
+                        const m = L.circleMarker([n.lat, n.lon], {
+                            radius: 3,
+                            fillColor: '#27ae60',
+                            fillOpacity: 0.5,
+                            color: '#fff',
+                            weight: 1
+                        }).addTo(map);
+                        pathMarkers.push(m);
+                    }
+                }
+            }
+            
+            map.fitBounds(line.getBounds().pad(0.2));
+        } else {
+            console.error('無法生成路徑座標');
+        }
+    }
+}
+
+function displayResults(bestPath, dm, clues, execTime) {
+    const banner = document.getElementById('resultBanner');
+    const pathDiv = document.getElementById('optimalPath');
+    
+    if (bestPath.length > 0) {
+        banner.className = 'result-banner success';
+        banner.innerHTML = `
+            <strong style="color:#27ae60;">✓ 找到最優路徑</strong><br>
+            <span style="font-size:0.9em;">d<sub>m</sub>(C, FP<sub>bab</sub>) = <b>${dm.toFixed(4)}</b></span>
+        `;
+        
+        pathDiv.innerHTML = bestPath.map((id, i) => {
+            const n = nodes.get(id);
+            return `<div class="path-step optimal" onclick="focusNode(${n?.lat || 0},${n?.lon || 0},'Node-${id}')">
+                <div class="step-num">${i}</div>
+                <div><strong>${i === 0 ? '起點' : '匹配 ' + i}</strong><br><small>Node-${id}</small></div>
+            </div>`;
+        }).join('');
+        
+        document.getElementById('headerResult').textContent = `最優匹配距離: ${dm.toFixed(4)}`;
+    } else {
+        banner.className = 'result-banner fail';
+        banner.innerHTML = `<strong style="color:#f39c12;">⚠ 未找到可行路徑</strong><br><span style="font-size:0.9em;">請調整線索參數</span>`;
+        pathDiv.innerHTML = '';
+        document.getElementById('headerResult').textContent = '無可行路徑';
+    }
+    
+    document.getElementById('ubValue').textContent = dm === Infinity ? '∞' : dm.toFixed(4);
+    document.getElementById('stepCount').textContent = searchSteps.length;
+    document.getElementById('execTime').textContent = execTime.toFixed(1) + ' ms';
+}
+
+function displayStepTable() {
+    const tbody = document.getElementById('stepTableBody');
+    tbody.innerHTML = searchSteps.map((s, i) => {
+        let cls = '';
+        if (s.action === 'INIT') cls = 'init';
+        else if (s.action === 'DONE') cls = 'terminate';
+        else if (s.accepted) cls = 'accepted';
+        else cls = 'rejected';
+        
+        const stackVStr = s.stackV.length > 3 
+            ? `[${s.stackV[0]}...${s.stackV[s.stackV.length-1]}]` 
+            : `[${s.stackV.join('→')}]`;
+        const ubStr = s.ub === Infinity ? '∞' : s.ub.toFixed(3);
+        
+        return `<tr class="${cls}" data-index="${i}" onclick="highlightStep(${i})">
+            <td>${s.step}</td>
+            <td>${s.action}</td>
+            <td style="font-size:0.75em;">${stackVStr}</td>
+            <td>${ubStr}</td>
+            <td>${s.accepted ? '✓' : '✗'}</td>
+        </tr>`;
+    }).join('');
+}
+
+function highlightStep(index) {
+    const step = searchSteps[index];
+    if (!step) return;
+    
+    // Clear previous highlights
+    document.querySelectorAll('.step-table tr').forEach(r => r.style.outline = '');
+    document.querySelector(`.step-table tr[data-index="${index}"]`).style.outline = '3px solid #e74c3c';
+    
+    // Show candidate on map if exists
+    if (step.candidate) {
+        const n = nodes.get(step.candidate);
+        if (n) {
+            map.setView([n.lat, n.lon], 17);
+            L.popup().setLatLng([n.lat, n.lon])
+                .setContent(`<b>Step ${step.step}</b><br>${step.action}<br>Node-${step.candidate}`)
+                .openOn(map);
+        }
+    }
+}
+
+function animateSteps() {
+    resetAnimation();
+    animInterval = setInterval(() => {
+        if (animIndex >= searchSteps.length) {
+            clearInterval(animInterval);
+            return;
+        }
+        highlightStep(animIndex);
+        const step = searchSteps[animIndex];
+        if (step.candidate) {
+            const n = nodes.get(step.candidate);
+            if (n) {
+                const color = step.accepted ? '#27ae60' : '#f39c12';
+                const m = L.marker([n.lat, n.lon], {icon: createIcon(color, 12)}).addTo(map);
+                pathMarkers.push(m);
+            }
+        }
+        animIndex++;
+    }, 400);
+}
+
+function resetAnimation() {
+    if (animInterval) clearInterval(animInterval);
+    animIndex = 0;
+    document.querySelectorAll('.step-table tr').forEach(r => r.style.outline = '');
+}
+
+// ==================== Initialize ====================
+document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+    loadGraphData();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+﻿C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\CDPMain.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\QuickDiagnostics.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\algorithm\CDPAlgorithm.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\algorithm\PathRepairer.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\algorithm\PathValidator.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\model\Clue.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\model\Edge.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\model\Node.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\model\RoadNetwork.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\parser\OSMParser.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\utils\NetworkDiagnostics.java
+C:\Users\user\Desktop\cdp_java_project\crs-cdp\src\main\java\crs\visualization\CDPVisualizer.java

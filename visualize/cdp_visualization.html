@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDP Algorithm Visualization - 動態規劃路徑搜尋</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white; padding: 15px 20px; text-align: center;
+        }
+        .header h1 { font-size: 1.4em; }
+        .header p { font-size: 0.85em; opacity: 0.9; }
+        .main-container { display: flex; height: calc(100vh - 70px); }
+        .left-panel {
+            width: 420px; background: white; overflow-y: auto;
+            border-right: 2px solid #dee2e6; padding: 15px;
+        }
+        #map { flex: 1; }
+        .panel {
+            background: #fafafa; margin-bottom: 15px; padding: 15px;
+            border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .panel h3 {
+            color: #2c3e50; font-size: 1em; margin-bottom: 10px;
+            padding-bottom: 8px; border-bottom: 2px solid #3498db;
+        }
+        .info-row { display: flex; justify-content: space-between; padding: 5px 0; }
+        .info-label { color: #666; }
+        .info-value { font-weight: bold; color: #2c3e50; }
+        .clue-badge {
+            display: inline-block; background: #3498db; color: white;
+            padding: 3px 10px; border-radius: 12px; font-size: 0.85em; margin: 2px;
+        }
+        .dp-table { width: 100%; border-collapse: collapse; font-size: 0.8em; margin-top: 10px; }
+        .dp-table th, .dp-table td {
+            border: 1px solid #ddd; padding: 6px; text-align: center;
+        }
+        .dp-table th { background: #3498db; color: white; }
+        .dp-table .optimal { background: #27ae60; color: white; font-weight: bold; }
+        .dp-table .candidate { background: #f39c12; color: white; }
+        .legend-item { display: flex; align-items: center; margin: 5px 0; }
+        .legend-dot {
+            width: 14px; height: 14px; border-radius: 50%; margin-right: 8px;
+            border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .path-step {
+            display: flex; align-items: center; padding: 8px;
+            margin: 5px 0; background: #e8f4f8; border-radius: 6px;
+            border-left: 4px solid #3498db; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .path-step:hover { transform: translateX(5px); background: #d4edda; }
+        .path-step.optimal { border-left-color: #27ae60; background: #d4edda; }
+        .step-num {
+            width: 24px; height: 24px; background: #3498db; color: white;
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; margin-right: 10px; font-size: 0.8em;
+        }
+        .path-step.optimal .step-num { background: #27ae60; }
+        .btn {
+            background: #3498db; color: white; border: none;
+            padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 3px;
+        }
+        .btn:hover { background: #2980b9; }
+        .btn-success { background: #27ae60; }
+        .btn-success:hover { background: #219a52; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>Algorithm 2: CDP - 動態規劃線索路徑搜尋</h1>
+    <p>Clue-Based Dynamic Programming | 最優匹配距離: 0.1830</p>
+</div>
+<div class="main-container">
+<div class="left-panel">
+<div class="panel">
+    <h3>查詢資訊</h3>
+    <div class="info-row"><span class="info-label">起點</span><span class="info-value">Node-9670502264</span></div>
+    <div class="info-row"><span class="info-label">線索數量</span><span class="info-value">3</span></div>
+    <div class="info-row"><span class="info-label">最優匹配距離</span><span class="info-value">0.1830</span></div>
+    <div style="margin-top:10px;">線索序列:</div>
+    <span class="clue-badge">1. crossing ~150m</span>
+    <span class="clue-badge">2. crossing ~300m</span>
+    <span class="clue-badge">3. crossing ~450m</span>
+</div>
+<div class="panel">
+    <h3>最優路徑 FP<sub>cdp</sub></h3>
+    <div class="path-step optimal" onclick="focusNode(25.0173464,121.5404156)">
+        <div class="step-num">0</div>
+        <div><strong>起點</strong><br><small>Node-9670502264</small></div>
+    </div>
+    <div class="path-step optimal" onclick="focusNode(25.016278,121.5396206)">
+        <div class="step-num">1</div>
+        <div><strong>匹配 1</strong><br><small>Node-3039162612</small></div>
+    </div>
+    <div class="path-step optimal" onclick="focusNode(25.0140388,121.540391)">
+        <div class="step-num">2</div>
+        <div><strong>匹配 2</strong><br><small>Node-6691390559</small></div>
+    </div>
+    <div class="path-step optimal" onclick="focusNode(25.0151707,121.5431409)">
+        <div class="step-num">3</div>
+        <div><strong>匹配 3</strong><br><small>Node-6698916610</small></div>
+    </div>
+</div>
+<div class="panel">
+    <h3>圖例</h3>
+    <div class="legend-item"><div class="legend-dot" style="background:#e74c3c;"></div>起點</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#27ae60;"></div>最優路徑節點</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f39c12;"></div>DP 候選節點</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3498db;width:30px;height:4px;border-radius:2px;"></div>最優路徑</div>
+</div>
+<div class="panel">
+    <h3>動態規劃表 D(w<sub>i</sub>, u)</h3>
+    <button class="btn btn-success" onclick="animateDP()">▶ 動畫演示</button>
+    <button class="btn" onclick="resetDP()">⟲ 重置</button>
+    <div id="dp-table-container" style="max-height:250px;overflow:auto;margin-top:10px;">
+<table class="dp-table">
+<tr><th>Level</th><th>節點</th><th>D值</th><th>前驅</th></tr>
+<tr class="candidate"><td>1</td><td>Node-5284489840</td><td>0.462</td><td>Node-96705</td></tr>
+<tr class="candidate"><td>1</td><td>Node-4947152224</td><td>0.277</td><td>Node-96705</td></tr>
+<tr class="candidate"><td>1</td><td>Node-2281072954</td><td>0.323</td><td>Node-96705</td></tr>
+<tr class="candidate"><td>1</td><td>Node-3039162602</td><td>0.242</td><td>Node-96705</td></tr>
+<tr class="candidate"><td>1</td><td>Node-3039162613</td><td>0.627</td><td>Node-96705</td></tr>
+<tr class="optimal"><td>1</td><td>Node-3039162612</td><td>0.183</td><td>Node-96705</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6698932993</td><td>0.658</td><td>Node-30391</td></tr>
+<tr class="optimal"><td>2</td><td>Node-6698916610</td><td>0.462</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-5827513620</td><td>0.405</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6698916632</td><td>0.586</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-5827513648</td><td>0.627</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-5827513634</td><td>0.526</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6073458299</td><td>0.781</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6073458300</td><td>0.758</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6073458302</td><td>0.708</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390551</td><td>0.451</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390550</td><td>0.400</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390549</td><td>0.335</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4069900311</td><td>0.292</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4069900310</td><td>0.183</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390546</td><td>0.496</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390545</td><td>0.448</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390544</td><td>0.401</td><td>Node-22810</td></tr>
+<tr class="optimal"><td>2</td><td>Node-6691390559</td><td>0.183</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390557</td><td>0.379</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-5494236656</td><td>0.462</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390556</td><td>0.323</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-5284489840</td><td>0.277</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4069900313</td><td>0.323</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390553</td><td>0.402</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390552</td><td>0.462</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790528</td><td>0.531</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790529</td><td>0.470</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790530</td><td>0.350</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4069900301</td><td>0.532</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790540</td><td>0.475</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790541</td><td>0.534</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790542</td><td>0.595</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790543</td><td>0.803</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6073403039</td><td>0.498</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790539</td><td>0.415</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6376416690</td><td>0.456</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6698916588</td><td>0.826</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6698916589</td><td>0.867</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6698916591</td><td>0.462</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-321565315</td><td>0.956</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-321562776</td><td>0.821</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390564</td><td>0.242</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390563</td><td>0.183</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6691390560</td><td>0.242</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4578835549</td><td>0.923</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4947152224</td><td>0.183</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-2281072954</td><td>0.253</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6376416479</td><td>0.897</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-3039162602</td><td>0.277</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-3039162613</td><td>0.291</td><td>Node-49471</td></tr>
+<tr class="optimal"><td>2</td><td>Node-3039162612</td><td>0.277</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4345337559</td><td>0.627</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4345337561</td><td>0.587</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4345337562</td><td>0.545</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4345337564</td><td>0.535</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790517</td><td>0.411</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4345337577</td><td>0.242</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6657790527</td><td>0.766</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>2</td><td>Node-6394348232</td><td>0.941</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>2</td><td>Node-4345337581</td><td>0.377</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>2</td><td>Node-1240739007</td><td>0.310</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>2</td><td>Node-1240739007</td><td>0.316</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5385119730</td><td>0.301</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5385119729</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5385119728</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5385119727</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5385119726</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5385119725</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5385119724</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6761329953</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6761329955</td><td>0.387</td><td>Node-43453</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6761371690</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-1282866396</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6698916616</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6698932993</td><td>0.204</td><td>Node-40699</td></tr>
+<tr class="optimal"><td>3</td><td>Node-6698916610</td><td>0.183</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5827513620</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6698916613</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6698916632</td><td>0.183</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-2037722661</td><td>0.183</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5827513648</td><td>0.270</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5827513634</td><td>0.183</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6073458299</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6073458300</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6073458302</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390551</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390550</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390549</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4069900311</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4069900310</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790544</td><td>0.310</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390546</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790545</td><td>0.456</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390545</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390544</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="optimal"><td>3</td><td>Node-6691390559</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6760934258</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390557</td><td>0.204</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5494236656</td><td>0.183</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390556</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5284489840</td><td>0.183</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4069900313</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-5022177236</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390553</td><td>0.219</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390552</td><td>0.189</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790528</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790529</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790530</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4069900301</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790540</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790541</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790542</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790543</td><td>0.277</td><td>Node-30391</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6760934246</td><td>0.351</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6073403039</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-7782540159</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790539</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416690</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6760934233</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416693</td><td>0.417</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6698916588</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6698916589</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6698916591</td><td>0.218</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-321565315</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-7723523573</td><td>0.586</td><td>Node-66989</td></tr>
+<tr class="candidate"><td>3</td><td>Node-321562776</td><td>0.253</td><td>Node-22810</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390564</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390563</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6691390560</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4578835549</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416685</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416687</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4947152224</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416475</td><td>0.451</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-2281072954</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416479</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-3039162602</td><td>0.242</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-3039162613</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="optimal"><td>3</td><td>Node-3039162612</td><td>0.242</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4345337559</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4345337561</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6760946722</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4345337562</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4345337564</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790517</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4345337577</td><td>0.277</td><td>Node-52844</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6394348234</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790526</td><td>0.431</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6657790527</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6394348232</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-4345337581</td><td>0.202</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6760946710</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6394348237</td><td>0.183</td><td>Node-66913</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6394348236</td><td>0.322</td><td>Node-12407</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416481</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416480</td><td>0.292</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6376416483</td><td>0.323</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-1240739007</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-1240739007</td><td>0.183</td><td>Node-49471</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6394348246</td><td>0.183</td><td>Node-40699</td></tr>
+<tr class="candidate"><td>3</td><td>Node-6394348249</td><td>0.183</td><td>Node-66913</td></tr>
+</table>
+    </div>
+</div>
+</div>
+<div id="map"></div>
+</div>
+<script>
+var map = L.map('map').setView([25.016103800140456,121.5429943201287], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+
+function createIcon(color, size) {
+    return L.divIcon({
+        className: 'custom-icon',
+        html: '<div style="background:'+color+';width:'+size+'px;height:'+size+'px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>',
+        iconSize: [size, size], iconAnchor: [size/2, size/2]
+    });
+}
+var dpMarkers = [];
+var animIndex = 0;
+var animInterval = null;
+
+L.marker([25.0173464,121.5404156],{icon:createIcon('#e74c3c',20)}).addTo(map).bindPopup('<b>起點</b><br>Node-9670502264');
+
+// 完整實際路徑 - 沿著真實道路網絡
+var fullPathCoords = [
+  [25.0173464,121.5404156],
+  [25.0171781,121.5404162],
+  [25.0171134,121.5404164],
+  [25.0170446,121.5404166],
+  [25.0170335,121.5404217],
+  [25.0169602,121.5404234],
+  [25.0166707,121.5404277],
+  [25.0166227,121.5404603],
+  [25.0165064,121.5402495],
+  [25.0164913,121.5402124],
+  [25.0163736,121.5399228],
+  [25.016278,121.5396206],
+  [25.0162526,121.5395465],
+  [25.0161539,121.5392992],
+  [25.016095,121.5391621],
+  [25.0160588,121.539078],
+  [25.0156793,121.5392381],
+  [25.0155593,121.539259],
+  [25.0155033,121.5392479],
+  [25.0154442,121.5392361],
+  [25.0151644,121.5394025],
+  [25.0146624,121.5398169],
+  [25.0145995,121.5397867],
+  [25.0144471,121.5399194],
+  [25.0143701,121.5399114],
+  [25.014321,121.5399618],
+  [25.0140404,121.5402497],
+  [25.0140218,121.5402679],
+  [25.0140827,121.5403388],
+  [25.0140388,121.540391],
+  [25.0138741,121.5405637],
+  [25.01403,121.5407534],
+  [25.0146651,121.5414831],
+  [25.0154881,121.5424627],
+  [25.0156042,121.542604],
+  [25.0156504,121.5426601],
+  [25.015622,121.5426809],
+  [25.0156729,121.5427507],
+  [25.015413,121.5429526],
+  [25.0151707,121.5431409],
+];
+L.polyline(fullPathCoords,{color:'#27ae60',weight:5,opacity:0.8}).addTo(map);
+
+// 關鍵節點連接（藍色虛線）
+var keyPathCoords = [
+  [25.0173464,121.5404156],
+  [25.016278,121.5396206],
+  [25.0140388,121.540391],
+  [25.0151707,121.5431409],
+];
+L.polyline(keyPathCoords,{color:'#3498db',weight:2,opacity:0.5,dashArray:'5,10'}).addTo(map);
+
+L.marker([25.016278,121.5396206],{icon:createIcon('#27ae60',16)}).addTo(map).bindPopup('<b>匹配 1</b><br>Node-3039162612');
+L.marker([25.0140388,121.540391],{icon:createIcon('#27ae60',16)}).addTo(map).bindPopup('<b>匹配 2</b><br>Node-6691390559');
+L.marker([25.0151707,121.5431409],{icon:createIcon('#27ae60',16)}).addTo(map).bindPopup('<b>匹配 3</b><br>Node-6698916610');
+
+var dpSteps = [
+  {lat:25.0166511,lon:121.5405117,name:'Node-5284489840',level:1,dpValue:0.4624056508995975,isOptimal:false},
+  {lat:25.0184838,lon:121.5398141,name:'Node-4947152224',level:1,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0185024,lon:121.5411049,name:'Node-2281072954',level:1,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0162526,lon:121.5395465,name:'Node-3039162602',level:1,dpValue:0.24216651591326896,isOptimal:false},
+  {lat:25.0160588,lon:121.539078,name:'Node-3039162613',level:1,dpValue:0.626602091571009,isOptimal:false},
+  {lat:25.016278,lon:121.5396206,name:'Node-3039162612',level:1,dpValue:0.18303392520396283,isOptimal:true},
+  {lat:25.0126857,lon:121.5392483,name:'Node-6698932993',level:2,dpValue:0.6583705498082837,isOptimal:false},
+  {lat:25.0151707,lon:121.5431409,name:'Node-6698916610',level:2,dpValue:0.4624056508995975,isOptimal:false},
+  {lat:25.0133823,lon:121.5405444,name:'Node-5827513620',level:2,dpValue:0.4053530790003364,isOptimal:false},
+  {lat:25.0147155,lon:121.5434946,name:'Node-6698916632',level:2,dpValue:0.585584308098846,isOptimal:false},
+  {lat:25.0127449,lon:121.5407549,name:'Node-5827513648',level:2,dpValue:0.626602091571009,isOptimal:false},
+  {lat:25.0147326,lon:121.5430454,name:'Node-5827513634',level:2,dpValue:0.5263027575822382,isOptimal:false},
+  {lat:25.0123658,lon:121.5402637,name:'Node-6073458299',level:2,dpValue:0.7811835643817997,isOptimal:false},
+  {lat:25.0124106,lon:121.5402242,name:'Node-6073458300',level:2,dpValue:0.7575673127845594,isOptimal:false},
+  {lat:25.0125075,lon:121.540145,name:'Node-6073458302',level:2,dpValue:0.707899625458868,isOptimal:false},
+  {lat:25.0171208,lon:121.544433,name:'Node-6691390551',level:2,dpValue:0.4508417805807531,isOptimal:false},
+  {lat:25.0171978,lon:121.5443272,name:'Node-6691390550',level:2,dpValue:0.40020001371650216,isOptimal:false},
+  {lat:25.0172812,lon:121.5441784,name:'Node-6691390549',level:2,dpValue:0.3349049280346711,isOptimal:false},
+  {lat:25.0158871,lon:121.5424406,name:'Node-4069900311',level:2,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.015017,lon:121.541426,name:'Node-4069900310',level:2,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0172615,lon:121.5445943,name:'Node-6691390546',level:2,dpValue:0.4964871752528055,isOptimal:false},
+  {lat:25.0173389,lon:121.5444971,name:'Node-6691390545',level:2,dpValue:0.4481972745530287,isOptimal:false},
+  {lat:25.0174417,lon:121.5443731,name:'Node-6691390544',level:2,dpValue:0.400794209340365,isOptimal:false},
+  {lat:25.0140388,lon:121.540391,name:'Node-6691390559',level:2,dpValue:0.18303392520396283,isOptimal:true},
+  {lat:25.0156042,lon:121.542604,name:'Node-6691390557',level:2,dpValue:0.37911378312270705,isOptimal:false},
+  {lat:25.0148406,lon:121.5431869,name:'Node-5494236656',level:2,dpValue:0.4624056508995975,isOptimal:false},
+  {lat:25.0158222,lon:121.5424171,name:'Node-6691390556',level:2,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0166511,lon:121.5405117,name:'Node-5284489840',level:2,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0173334,lon:121.5441702,name:'Node-4069900313',level:2,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0157145,lon:121.5427371,name:'Node-6691390553',level:2,dpValue:0.40237027540175907,isOptimal:false},
+  {lat:25.0159313,lon:121.5425465,name:'Node-6691390552',level:2,dpValue:0.4624056508995975,isOptimal:false},
+  {lat:25.0173942,lon:121.5365267,name:'Node-6657790528',level:2,dpValue:0.5307598421082406,isOptimal:false},
+  {lat:25.0173963,lon:121.5366896,name:'Node-6657790529',level:2,dpValue:0.4699602819576356,isOptimal:false},
+  {lat:25.0174007,lon:121.5370106,name:'Node-6657790530',level:2,dpValue:0.3501510949594671,isOptimal:false},
+  {lat:25.013259,lon:121.5393659,name:'Node-4069900301',level:2,dpValue:0.5318545348488511,isOptimal:false},
+  {lat:25.0171829,lon:121.536851,name:'Node-6657790540',level:2,dpValue:0.47534844692657113,isOptimal:false},
+  {lat:25.0171808,lon:121.5366926,name:'Node-6657790541',level:2,dpValue:0.5344689086178981,isOptimal:false},
+  {lat:25.0171799,lon:121.53653,name:'Node-6657790542',level:2,dpValue:0.5951515971784828,isOptimal:false},
+  {lat:25.0171698,lon:121.5358997,name:'Node-6657790543',level:2,dpValue:0.8029420679760556,isOptimal:false},
+  {lat:25.0131915,lon:121.5406696,name:'Node-6073403039',level:2,dpValue:0.4981237182051035,isOptimal:false},
+  {lat:25.017185,lon:121.5370134,name:'Node-6657790539',level:2,dpValue:0.41473536086799095,isOptimal:false},
+  {lat:25.0171056,lon:121.5445189,name:'Node-6376416690',level:2,dpValue:0.4559779768119871,isOptimal:false},
+  {lat:25.0124599,lon:121.5384059,name:'Node-6698916588',level:2,dpValue:0.8261227958318542,isOptimal:false},
+  {lat:25.0123937,lon:121.538325,name:'Node-6698916589',level:2,dpValue:0.8668031036375758,isOptimal:false},
+  {lat:25.01579,lon:121.5428758,name:'Node-6698916591',level:2,dpValue:0.4624056508995975,isOptimal:false},
+  {lat:25.0134989,lon:121.5380326,name:'Node-321565315',level:2,dpValue:0.9562675019295793,isOptimal:false},
+  {lat:25.0186634,lon:121.5455828,name:'Node-321562776',level:2,dpValue:0.8207727387161492,isOptimal:false},
+  {lat:25.0137651,lon:121.540432,name:'Node-6691390564',level:2,dpValue:0.24216651591326896,isOptimal:false},
+  {lat:25.0139312,lon:121.5402683,name:'Node-6691390563',level:2,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0138741,lon:121.5405637,name:'Node-6691390560',level:2,dpValue:0.24216651591326896,isOptimal:false},
+  {lat:25.0139109,lon:121.5438998,name:'Node-4578835549',level:2,dpValue:0.9234799825736622,isOptimal:false},
+  {lat:25.0184838,lon:121.5398141,name:'Node-4947152224',level:2,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0185024,lon:121.5411049,name:'Node-2281072954',level:2,dpValue:0.25250894168537835,isOptimal:false},
+  {lat:25.0164228,lon:121.5452708,name:'Node-6376416479',level:2,dpValue:0.8965250144707709,isOptimal:false},
+  {lat:25.0162526,lon:121.5395465,name:'Node-3039162602',level:2,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0160588,lon:121.539078,name:'Node-3039162613',level:2,dpValue:0.2908428082619899,isOptimal:false},
+  {lat:25.016278,lon:121.5396206,name:'Node-3039162612',level:2,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.013002,lon:121.5396351,name:'Node-4345337559',level:2,dpValue:0.626602091571009,isOptimal:false},
+  {lat:25.0130943,lon:121.539629,name:'Node-4345337561',level:2,dpValue:0.5871719400613783,isOptimal:false},
+  {lat:25.0131676,lon:121.5395513,name:'Node-4345337562',level:2,dpValue:0.5453129584498775,isOptimal:false},
+  {lat:25.0132405,lon:121.539479,name:'Node-4345337564',level:2,dpValue:0.5352922073938357,isOptimal:false},
+  {lat:25.0173985,lon:121.5368478,name:'Node-6657790517',level:2,dpValue:0.4109139373969234,isOptimal:false},
+  {lat:25.0137705,lon:121.5405316,name:'Node-4345337577',level:2,dpValue:0.24216651591326896,isOptimal:false},
+  {lat:25.0173854,lon:121.535896,name:'Node-6657790527',level:2,dpValue:0.7661616187386691,isOptimal:false},
+  {lat:25.0140089,lon:121.5440436,name:'Node-6394348232',level:2,dpValue:0.9414970461197535,isOptimal:false},
+  {lat:25.015622,lon:121.5426809,name:'Node-4345337581',level:2,dpValue:0.37738662137274215,isOptimal:false},
+  {lat:25.0159163,lon:121.5424752,name:'Node-12407390073',level:2,dpValue:0.3098386156578173,isOptimal:false},
+  {lat:25.0159262,lon:121.5424868,name:'Node-12407390072',level:2,dpValue:0.31578540664271004,isOptimal:false},
+  {lat:25.0188941,lon:121.5466404,name:'Node-5385119730',level:3,dpValue:0.30092410039726303,isOptimal:false},
+  {lat:25.0189238,lon:121.5464017,name:'Node-5385119729',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0190253,lon:121.546285,name:'Node-5385119728',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0189439,lon:121.5464251,name:'Node-5385119727',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0190502,lon:121.5463052,name:'Node-5385119726',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0188692,lon:121.5465123,name:'Node-5385119725',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0188491,lon:121.5464855,name:'Node-5385119724',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0138474,lon:121.5467279,name:'Node-6761329953',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0135745,lon:121.5464496,name:'Node-6761329955',level:3,dpValue:0.38685407918753667,isOptimal:false},
+  {lat:25.018094,lon:121.5456457,name:'Node-6761371690',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0153093,lon:121.5469464,name:'Node-12828663961',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0145084,lon:121.5472098,name:'Node-6698916616',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0126857,lon:121.5392483,name:'Node-6698932993',level:3,dpValue:0.20392261711021215,isOptimal:false},
+  {lat:25.0151707,lon:121.5431409,name:'Node-6698916610',level:3,dpValue:0.18303392520396283,isOptimal:true},
+  {lat:25.0133823,lon:121.5405444,name:'Node-5827513620',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0147529,lon:121.5473855,name:'Node-6698916613',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0147155,lon:121.5434946,name:'Node-6698916632',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0114799,lon:121.5373419,name:'Node-2037722661',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0127449,lon:121.5407549,name:'Node-5827513648',level:3,dpValue:0.27015877078342054,isOptimal:false},
+  {lat:25.0147326,lon:121.5430454,name:'Node-5827513634',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0123658,lon:121.5402637,name:'Node-6073458299',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0124106,lon:121.5402242,name:'Node-6073458300',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0125075,lon:121.540145,name:'Node-6073458302',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171208,lon:121.544433,name:'Node-6691390551',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171978,lon:121.5443272,name:'Node-6691390550',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0172812,lon:121.5441784,name:'Node-6691390549',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0158871,lon:121.5424406,name:'Node-4069900311',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.015017,lon:121.541426,name:'Node-4069900310',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171603,lon:121.5353149,name:'Node-6657790544',level:3,dpValue:0.3104441463677999,isOptimal:false},
+  {lat:25.0172615,lon:121.5445943,name:'Node-6691390546',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171531,lon:121.5347294,name:'Node-6657790545',level:3,dpValue:0.45612815409203455,isOptimal:false},
+  {lat:25.0173389,lon:121.5444971,name:'Node-6691390545',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0174417,lon:121.5443731,name:'Node-6691390544',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0140388,lon:121.540391,name:'Node-6691390559',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.017766,lon:121.5477049,name:'Node-6760934258',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0156042,lon:121.542604,name:'Node-6691390557',level:3,dpValue:0.2035569308467799,isOptimal:false},
+  {lat:25.0148406,lon:121.5431869,name:'Node-5494236656',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0158222,lon:121.5424171,name:'Node-6691390556',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0166511,lon:121.5405117,name:'Node-5284489840',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0173334,lon:121.5441702,name:'Node-4069900313',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0145019,lon:121.5463773,name:'Node-5022177236',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0157145,lon:121.5427371,name:'Node-6691390553',level:3,dpValue:0.21906125903281487,isOptimal:false},
+  {lat:25.0159313,lon:121.5425465,name:'Node-6691390552',level:3,dpValue:0.18935983913307036,isOptimal:false},
+  {lat:25.0173942,lon:121.5365267,name:'Node-6657790528',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0173963,lon:121.5366896,name:'Node-6657790529',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0174007,lon:121.5370106,name:'Node-6657790530',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.013259,lon:121.5393659,name:'Node-4069900301',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0171829,lon:121.536851,name:'Node-6657790540',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171808,lon:121.5366926,name:'Node-6657790541',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171799,lon:121.53653,name:'Node-6657790542',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171698,lon:121.5358997,name:'Node-6657790543',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0171105,lon:121.5484121,name:'Node-6760934246',level:3,dpValue:0.3508922133934877,isOptimal:false},
+  {lat:25.0131915,lon:121.5406696,name:'Node-6073403039',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0150628,lon:121.5475312,name:'Node-7782540159',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.017185,lon:121.5370134,name:'Node-6657790539',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0171056,lon:121.5445189,name:'Node-6376416690',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0132749,lon:121.5444031,name:'Node-6760934233',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.016935,lon:121.5488237,name:'Node-6376416693',level:3,dpValue:0.41738954644297477,isOptimal:false},
+  {lat:25.0124599,lon:121.5384059,name:'Node-6698916588',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0123937,lon:121.538325,name:'Node-6698916589',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.01579,lon:121.5428758,name:'Node-6698916591',level:3,dpValue:0.21793724457446784,isOptimal:false},
+  {lat:25.0134989,lon:121.5380326,name:'Node-321565315',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.012474,lon:121.5451397,name:'Node-7723523573',level:3,dpValue:0.585584308098846,isOptimal:false},
+  {lat:25.0186634,lon:121.5455828,name:'Node-321562776',level:3,dpValue:0.25250894168537835,isOptimal:false},
+  {lat:25.0137651,lon:121.540432,name:'Node-6691390564',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0139312,lon:121.5402683,name:'Node-6691390563',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0138741,lon:121.5405637,name:'Node-6691390560',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0139109,lon:121.5438998,name:'Node-4578835549',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.015057,lon:121.5474258,name:'Node-6376416685',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0149616,lon:121.5475596,name:'Node-6376416687',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0184838,lon:121.5398141,name:'Node-4947152224',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0167102,lon:121.5488409,name:'Node-6376416475',level:3,dpValue:0.4508417805807531,isOptimal:false},
+  {lat:25.0185024,lon:121.5411049,name:'Node-2281072954',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0164228,lon:121.5452708,name:'Node-6376416479',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0162526,lon:121.5395465,name:'Node-3039162602',level:3,dpValue:0.24216651591326896,isOptimal:false},
+  {lat:25.0160588,lon:121.539078,name:'Node-3039162613',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.016278,lon:121.5396206,name:'Node-3039162612',level:3,dpValue:0.24216651591326896,isOptimal:false},
+  {lat:25.013002,lon:121.5396351,name:'Node-4345337559',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0130943,lon:121.539629,name:'Node-4345337561',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0127121,lon:121.5450471,name:'Node-6760946722',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0131676,lon:121.5395513,name:'Node-4345337562',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0132405,lon:121.539479,name:'Node-4345337564',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0173985,lon:121.5368478,name:'Node-6657790517',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0137705,lon:121.5405316,name:'Node-4345337577',level:3,dpValue:0.2771772722930852,isOptimal:false},
+  {lat:25.0125847,lon:121.5450521,name:'Node-6394348234',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.0173694,lon:121.5347262,name:'Node-6657790526',level:3,dpValue:0.43147930554746494,isOptimal:false},
+  {lat:25.0173854,lon:121.535896,name:'Node-6657790527',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0140089,lon:121.5440436,name:'Node-6394348232',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.015622,lon:121.5426809,name:'Node-4345337581',level:3,dpValue:0.20240548968013677,isOptimal:false},
+  {lat:25.0144607,lon:121.5463695,name:'Node-6760946710',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0128734,lon:121.5432191,name:'Node-6394348237',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0117806,lon:121.5441457,name:'Node-6394348236',level:3,dpValue:0.3219944909161069,isOptimal:false},
+  {lat:25.0152704,lon:121.5469164,name:'Node-6376416481',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0158874,lon:121.5460282,name:'Node-6376416480',level:3,dpValue:0.2921934781840169,isOptimal:false},
+  {lat:25.014942,lon:121.5474505,name:'Node-6376416483',level:3,dpValue:0.3229892895941435,isOptimal:false},
+  {lat:25.0159163,lon:121.5424752,name:'Node-12407390073',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0159262,lon:121.5424868,name:'Node-12407390072',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0132855,lon:121.5429027,name:'Node-6394348246',level:3,dpValue:0.18303392520396283,isOptimal:false},
+  {lat:25.0119863,lon:121.5419318,name:'Node-6394348249',level:3,dpValue:0.18303392520396283,isOptimal:false},
+];
+
+function animateDP() {
+    resetDP();
+    animInterval = setInterval(function() {
+        if (animIndex >= dpSteps.length) { clearInterval(animInterval); return; }
+        var step = dpSteps[animIndex];
+        var color = step.isOptimal ? '#27ae60' : '#f39c12';
+        var marker = L.marker([step.lat, step.lon], {icon: createIcon(color, 12)}).addTo(map);
+        marker.bindPopup('<b>Level '+step.level+'</b><br>'+step.name+'<br>D='+step.dpValue.toFixed(4));
+        dpMarkers.push(marker);
+
+        // 高亮表格行
+        var rows = document.querySelectorAll('.dp-table tr');
+        if (animIndex + 1 < rows.length) {
+            rows[animIndex + 1].style.outline = '3px solid #e74c3c';
+        }
+        animIndex++;
+    }, 300);
+}
+
+function resetDP() {
+    if (animInterval) clearInterval(animInterval);
+    dpMarkers.forEach(m => map.removeLayer(m));
+    dpMarkers = [];
+    animIndex = 0;
+    document.querySelectorAll('.dp-table tr').forEach(r => r.style.outline = '');
+}
+
+function focusNode(lat, lon) {
+    map.setView([lat, lon], 17);
+    L.popup().setLatLng([lat, lon]).setContent('選中位置').openOn(map);
+}
+</script>
+</body></html>

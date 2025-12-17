@@ -1,0 +1,24 @@
+{
+  "nodes": [
+    { "id": 1, "lat": 25.0160, "lon": 121.5430, "keywords": ["cafe", "park"] },
+    { "id": 2, "lat": 25.0162, "lon": 121.5440, "keywords": ["shop"] },
+    { "id": 3, "lat": 25.0170, "lon": 121.5435, "keywords": ["crossing"] },
+    { "id": 4, "lat": 25.0155, "lon": 121.5425, "keywords": ["museum"] },
+    { "id": 5, "lat": 25.0165, "lon": 121.5428, "keywords": ["restaurant"] }
+  ],
+  "edges": [
+    { "from": 1, "to": 2, "weight": 120 },
+    { "from": 2, "to": 3, "weight": 100 },
+    { "from": 3, "to": 5, "weight": 90 },
+    { "from": 5, "to": 4, "weight": 110 },
+    { "from": 4, "to": 1, "weight": 130 }
+  ],
+  "keywordIndex": {
+    "cafe": [1],
+    "park": [1],
+    "shop": [2],
+    "crossing": [3],
+    "museum": [4],
+    "restaurant": [5]
+  }
+}
