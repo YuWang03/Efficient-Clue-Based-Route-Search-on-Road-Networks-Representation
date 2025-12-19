@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRS Algorithm Visualization - 線索式路徑搜尋可視化</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Segoe UI', 'Microsoft JhengHei', Arial, sans-serif;
+    background: #f5f6fa;
+}
+.header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.header h1 {
+    font-size: 1.8em;
+    margin-bottom: 8px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+.header p {
+    font-size: 1em;
+    opacity: 0.95;
+    font-weight: 300;
+}
+.container {
+    display: flex;
+    height: calc(100vh - 100px);
+    gap: 0;
+}
+.left-panel {
+    width: 380px;
+    background: #ffffff;
+    overflow-y: auto;
+    border-right: 1px solid #e1e8ed;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+}
+.left-panel::-webkit-scrollbar { width: 8px; }
+.left-panel::-webkit-scrollbar-track { background: #f1f1f1; }
+.left-panel::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+.left-panel::-webkit-scrollbar-thumb:hover { background: #555; }
+
+#map {
+    flex: 1;
+    position: relative;
+}
+.map-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.panel {
+    background: white;
+    margin: 15px;
+    padding: 18px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.panel h3 {
+    color: #2c3e50;
+    border-bottom: 3px solid #667eea;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.2s;
+}
+.info-item:hover { background: #f8f9fa; }
+.info-item:last-child { border-bottom: none; }
+.info-label {
+    color: #666;
+    font-size: 0.95em;
+}
+.info-value {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 1em;
+}
+.clue-item {
+    background: linear-gradient(135deg, #e8f4f8 0%, #f0f7fa 100%);
+    padding: 12px 14px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border-left: 5px solid #3498db;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+.clue-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+.clue-keyword {
+    font-weight: bold;
+    color: #2980b9;
+    font-size: 1.1em;
+    display: inline-block;
+    margin-bottom: 5px;
+}
+.match-success {
+    border-left-color: #27ae60;
+    background: linear-gradient(135deg, #e8f8f0 0%, #f0faf5 100%);
+}
+.match-fail {
+    border-left-color: #e74c3c;
+    background: linear-gradient(135deg, #fdf2f2 0%, #fef5f5 100%);
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+    padding: 5px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+.legend-item:hover { background: #f8f9fa; }
+.legend-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 12px;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+.traversal-step {
+    padding: 10px 12px;
+    margin: 6px 0;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+}
+.traversal-step:hover {
+    background: #e8e8e8;
+    transform: translateX(3px);
+    border-left-color: #667eea;
+}
+.step-visited {
+    background: #fff3cd;
+    border-left-color: #ffc107;
+}
+.step-candidate {
+    background: #d4edda;
+    border-left-color: #28a745;
+}
+.step-selected {
+    background: #cfe2ff;
+    border: 2px solid #0d6efd;
+    font-weight: 600;
+}
+.btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 5px 3px;
+    font-size: 0.95em;
+    font-weight: 500;
+    transition: all 0.3s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+.btn:active { transform: translateY(0); }
+.btn-play {
+    background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+}
+.btn-pause {
+    background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+}
+.btn-stop {
+    background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+}
+.speed-control {
+    margin: 10px 0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+.speed-control label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: #666;
+}
+.speed-control input[type="range"] {
+    width: 100%;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+}
+.stat-box {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+.stat-box .value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #667eea;
+}
+.stat-box .label {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 5px;
+}
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #e0e0e0;
+    border-radius: 3px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    width: 0%;
+    transition: width 0.3s;
+}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>GCS Algorithm - 線索式路徑搜尋可視化</h1>
+        <p>Algorithm 1: findNextMin() 網路遍歷與路徑搜尋</p>
+    </div>
+    <div class="container">
+        <div class="left-panel">
+<div class="panel">
+    <h3>查詢資訊</h3>
+    <div class="info-item">
+        <span class="info-label">起點</span>
+        <span class="info-value">吉品勝口味</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">線索數量</span>
+        <span class="info-value">3</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">最大匹配距離</span>
+        <span class="info-value">0.7615</span>
+    </div>
+    <h4 style="margin-top:15px;">線索與匹配結果</h4>
+    <div class="clue-item match-success" onclick="focusOnClue(0)" title="點擊查看詳情">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="clue-keyword">1. restaurant</span>
+            <span style="font-size:1.2em;">✅</span>
+        </div>
+        <div style="font-size:0.9em; margin:5px 0; color:#666;">
+            目標: 2000m ± 2000m</div>
+        <div style="font-size:0.95em; color:#27ae60; font-weight:500;">
+            ✓ 台大後餐鹹酥雞</div>
+        <div style="font-size:0.85em; color:#666; margin:3px 0;">
+            ID: 7749776763</div>
+        <div style="font-size:0.85em; color:#666; margin:3px 0;">
+            關鍵字: [restaurant]</div>
+        <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-top:5px;">
+            <span>距離: 585.9m</span>
+            <span>dm: 0.707</span>
+        </div>
+    </div>
+    <div class="clue-item match-success" onclick="focusOnClue(1)" title="點擊查看詳情">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="clue-keyword">2. cafe</span>
+            <span style="font-size:1.2em;"></span>
+        </div>
+        <div style="font-size:0.9em; margin:5px 0; color:#666;">
+            目標: 2000m ± 2000m</div>
+        <div style="font-size:0.95em; color:#27ae60; font-weight:500;">
+            ✓ 路易莎咖啡</div>
+        <div style="font-size:0.85em; color:#666; margin:3px 0;">
+            ID: 12174967078</div>
+        <div style="font-size:0.85em; color:#666; margin:3px 0;">
+            關鍵字: [cafe]</div>
+        <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-top:5px;">
+            <span>距離: 585.8m</span>
+            <span>dm: 0.707</span>
+        </div>
+    </div>
+    <div class="clue-item match-success" onclick="focusOnClue(2)" title="點擊查看詳情">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="clue-keyword">3. convenience</span>
+            <span style="font-size:1.2em;"></span>
+        </div>
+        <div style="font-size:0.9em; margin:5px 0; color:#666;">
+            目標: 2000m ± 2000m</div>
+        <div style="font-size:0.95em; color:#27ae60; font-weight:500;">
+            ✓ 7-Eleven</div>
+        <div style="font-size:0.85em; color:#666; margin:3px 0;">
+            ID: 2026200468</div>
+        <div style="font-size:0.85em; color:#666; margin:3px 0;">
+            關鍵字: [convenience]</div>
+        <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-top:5px;">
+            <span>距離: 476.9m</span>
+            <span>dm: 0.762</span>
+        </div>
+    </div>
+</div>
+<div class="panel">
+    <h3>圖例</h3>
+    <div class="legend-item">
+        <div class="legend-color" style="background:#e74c3c;"></div>
+        <span>起點</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background:#27ae60;"></div>
+        <span>✓ 正確匹配（有關鍵字）</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background:#ff6b6b;"></div>
+        <span>✗ 錯誤匹配（無關鍵字）</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background:#f39c12;"></div>
+        <span>候選節點（遍歷時）</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background:#95a5a6;"></div>
+        <span>已遍歷節點</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background:#3498db;width:30px;height:4px;border-radius:2px;"></div>
+        <span>最終路徑</span>
+    </div>
+</div>
+<div class="panel">
+    <h3>🔍 遍歷過程</h3>
+    <div style="display:flex; gap:5px; flex-wrap:wrap;">
+        <button class="btn btn-play" onclick="playAnimation()" id="playBtn">▶ 播放</button>
+        <button class="btn btn-pause" onclick="pauseAnimation()" id="pauseBtn" style="display:none;">⏸ 暫停</button>
+        <button class="btn btn-stop" onclick="resetAnimation()">⏹ 重置</button>
+    </div>
+    <div class="speed-control">
+        <label>動畫速度: <span id="speedValue">100ms</span></label>
+        <input type="range" id="speedSlider" min="10" max="500" value="100" oninput="updateSpeed(this.value)">
+    </div>
+    <div class="progress-bar">
+        <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+    <div style="text-align:center; margin:5px 0; font-size:0.9em; color:#666;" id="stepCounter">步驟 0 / 60</div>
+    <div id="traversal-list" style="max-height:300px;overflow-y:auto;margin-top:10px;">
+        <div class="traversal-step step-candidate" onclick="highlightStep(0)">
+            <strong>#1</strong> 路易莎咖啡 (0.0m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(1)">
+            <strong>#2</strong> Node-1217482974 (6.0m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(2)">
+            <strong>#3</strong> 福客亭早餐吧 (95.3m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(3)">
+            <strong>#4</strong> 嚴茶 (97.2m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(4)">
+            <strong>#5</strong> 赤糰飯糰 (98.0m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(5)">
+            <strong>#6</strong> Node-6073402995 (98.7m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(6)">
+            <strong>#7</strong> 溫州大餛飩 (99.3m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(7)">
+            <strong>#8</strong> 甘味廚房 (100.9m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(8)">
+            <strong>#9</strong> Node-6073403029 (101.3m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(9)">
+            <strong>#10</strong> 動太郎 (102.5m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(10)">
+            <strong>#11</strong> 高麗元 (108.4m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(11)">
+            <strong>#12</strong> Medditerranian  (111.6m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(12)">
+            <strong>#13</strong> 強尼兄弟 (111.6m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(13)">
+            <strong>#14</strong> 小熊廚房 (113.0m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(14)">
+            <strong>#15</strong> 品客自助餐 (113.0m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(15)">
+            <strong>#16</strong> Node-6073402998 (113.4m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(16)">
+            <strong>#17</strong> 一品快餐 (114.5m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(17)">
+            <strong>#18</strong> Node-6072807114 (116.0m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(18)">
+            <strong>#19</strong> 福客鐵板料李 (117.2m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(19)">
+            <strong>#20</strong> 家常清真小吃 (119.0m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(20)">
+            <strong>#21</strong> Node-6073403026 (120.6m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(21)">
+            <strong>#22</strong> Node-6073402997 (121.4m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(22)">
+            <strong>#23</strong> Node-6073402996 (122.1m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(23)">
+            <strong>#24</strong> Node-6072807115 (122.6m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(24)">
+            <strong>#25</strong> 台科大第一學生餐廳 (122.8m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(25)">
+            <strong>#26</strong> Node-6073403003 (123.2m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(26)">
+            <strong>#27</strong> Node-1716390527 (133.5m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(27)">
+            <strong>#28</strong> 紅蔥 (135.2m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(28)">
+            <strong>#29</strong> Node-1225458620 (143.6m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(29)">
+            <strong>#30</strong> 波斯菊素食坊 (199.9m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-selected" onclick="highlightStep(30)">
+            <strong>#31</strong> 全家便利商店 (200.6m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(31)">
+            <strong>#32</strong> 我家廚房早餐店 (203.6m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(32)">
+            <strong>#33</strong> Node-9672654567 (205.8m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(33)">
+            <strong>#34</strong> 丼太郎 (207.2m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(34)">
+            <strong>#35</strong> Node-9672654337 (207.2m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(35)">
+            <strong>#36</strong> 武吉家 (209.3m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(36)">
+            <strong>#37</strong> 男一快餐 (211.8m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(37)">
+            <strong>#38</strong> Node-9672654624 (212.4m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(38)">
+            <strong>#39</strong> Node-9672654475 (215.2m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-selected" onclick="highlightStep(39)">
+            <strong>#40</strong> 7-Eleven (315.8m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(40)">
+            <strong>#41</strong> 台大後餐鹹酥雞 (316.2m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(41)">
+            <strong>#42</strong> Node-1226073063 (318.4m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(42)">
+            <strong>#43</strong> Node-1226088150 (323.6m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(43)">
+            <strong>#44</strong> 星巴克 (325.3m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(44)">
+            <strong>#45</strong> Node-1226073063 (331.2m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(45)">
+            <strong>#46</strong> 電腦先生 (334.2m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(46)">
+            <strong>#47</strong> Living One (385.5m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-visited" onclick="highlightStep(47)">
+            <strong>#48</strong> Node-1225266750 (388.3m)
+            <div style="font-size:0.8em;color:#666;">不包含關鍵字 'convenience'</div>
+        </div>
+        <div class="traversal-step step-selected" onclick="highlightStep(48)">
+            <strong>#49</strong> 全家便利商店 (446.0m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div class="traversal-step step-candidate" onclick="highlightStep(49)">
+            <strong>#50</strong> Node-9670471443 (449.9m)
+            <div style="font-size:0.8em;color:#666;">✓ 包含關鍵字且距離在範圍內</div>
+        </div>
+        <div style="padding:10px;color:#666;">... 還有 10 個步驟</div>
+    </div>
+</div>
+        </div>
+        <div id="map"></div>
+    </div>
+    <script>
+var map = L.map('map').setView([25.016104246292485, 121.54299172962118], 16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+var icons = {
+    source: L.divIcon({className: 'custom-icon', html: '<div style="background:#e74c3c;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>'}),
+    match: L.divIcon({className: 'custom-icon', html: '<div style="background:#27ae60;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>'}),
+    wrongMatch: L.divIcon({className: 'custom-icon', html: '<div style="background:#ff6b6b;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"><div style="color:white;font-size:10px;text-align:center;line-height:16px;">✗</div></div>'}),
+    candidate: L.divIcon({className: 'custom-icon', html: '<div style="background:#f39c12;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>'}),
+    visited: L.divIcon({className: 'custom-icon', html: '<div style="background:#95a5a6;width:8px;height:8px;border-radius:50%;"></div>'})
+};
+var markers = [];
+var pathLine = null;
+var animationIndex = 0;
+var animationInterval = null;
+
+// 起點
+L.marker([25.0181109, 121.540341], {icon: icons.source})
+    .addTo(map)
+    .bindPopup('<div style="min-width:200px;"><b style="font-size:1.1em;">🎯 起點</b><hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><div style="margin:5px 0;"><b>節點名稱:</b> 吉品勝口味</div><div style="margin:5px 0;"><b>節點 ID:</b> 2340183165</div><div style="margin:5px 0;"><b>座標:</b> (25.018111, 121.540341)</div><div style="margin:5px 0;"><b>關鍵字:</b> [restaurant]</div></div>');
+
+// 匹配節點
+L.marker([25.0163237, 121.5457338], {icon: icons.match})
+    .addTo(map)
+    .bindPopup('<div style="min-width:250px;"><b style="font-size:1.1em; color:#27ae60;">✅ 匹配 #1: restaurant</b><hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><div style="margin:5px 0;"><b>節點名稱:</b> 台大後餐鹹酥雞</div><div style="margin:5px 0;"><b>節點 ID:</b> 7749776763</div><div style="margin:5px 0;"><b>座標:</b> (25.016324, 121.545734)</div><div style="margin:5px 0;"><b>關鍵字:</b> [restaurant]</div><hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><div style="margin:5px 0;"><b>網路距離:</b> 585.9m</div><div style="margin:5px 0;"><b>匹配距離 dm:</b> 0.7070</div><div style="margin:5px 0;"><b>預期距離:</b> 2000m ± 2000m</div></div>');
+L.marker([25.0147208, 121.5431415], {icon: icons.match})
+    .addTo(map)
+    .bindPopup('<div style="min-width:250px;"><b style="font-size:1.1em; color:#27ae60;">✅ 匹配 #2: cafe</b><hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><div style="margin:5px 0;"><b>節點名稱:</b> 路易莎咖啡</div><div style="margin:5px 0;"><b>節點 ID:</b> 12174967078</div><div style="margin:5px 0;"><b>座標:</b> (25.014721, 121.543142)</div><div style="margin:5px 0;"><b>關鍵字:</b> [cafe]</div><hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><div style="margin:5px 0;"><b>網路距離:</b> 585.8m</div><div style="margin:5px 0;"><b>匹配距離 dm:</b> 0.7071</div><div style="margin:5px 0;"><b>預期距離:</b> 2000m ± 2000m</div></div>');
+L.marker([25.0171652, 121.544737], {icon: icons.match})
+    .addTo(map)
+    .bindPopup('<div style="min-width:250px;"><b style="font-size:1.1em; color:#27ae60;">✅ 匹配 #3: convenience</b><hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><div style="margin:5px 0;"><b>節點名稱:</b> 7-Eleven</div><div style="margin:5px 0;"><b>節點 ID:</b> 2026200468</div><div style="margin:5px 0;"><b>座標:</b> (25.017165, 121.544737)</div><div style="margin:5px 0;"><b>關鍵字:</b> [convenience]</div><hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><div style="margin:5px 0;"><b>網路距離:</b> 476.9m</div><div style="margin:5px 0;"><b>匹配距離 dm:</b> 0.7615</div><div style="margin:5px 0;"><b>預期距離:</b> 2000m ± 2000m</div></div>');
+
+// 匹配節點座標資料
+var clueMatches = [
+    {lat: 25.0163237, lon: 121.5457338, name: '台大後餐鹹酥雞', keyword: 'restaurant', keywords: '[restaurant]'},
+    {lat: 25.0147208, lon: 121.5431415, name: '路易莎咖啡', keyword: 'cafe', keywords: '[cafe]'},
+    {lat: 25.0171652, lon: 121.544737, name: '7-Eleven', keyword: 'convenience', keywords: '[convenience]'},
+];
+
+// 遍歷步驟資料
+var traversalSteps = [
+    {lat: 25.0147208, lon: 121.5431415, name: '路易莎咖啡', distance: 0.0, isCandidate: true, isSelected: false},
+    {lat: 25.0147743, lon: 121.5431361, name: 'Node-12174829747', distance: 5.973761641433164, isCandidate: false, isSelected: false},
+    {lat: 25.0139705, lon: 121.5426834, name: '福客亭早餐吧', distance: 95.34820236228344, isCandidate: true, isSelected: false},
+    {lat: 25.0139294, lon: 121.5427315, name: '嚴茶', distance: 97.21502592895334, isCandidate: true, isSelected: false},
+    {lat: 25.0140991, lon: 121.5424528, name: '赤糰飯糰', distance: 97.9533830080651, isCandidate: true, isSelected: false},
+    {lat: 25.0139455, lon: 121.5427018, name: 'Node-6073402995', distance: 98.68965688741855, isCandidate: false, isSelected: false},
+    {lat: 25.0138945, lon: 121.5427665, name: '溫州大餛飩', distance: 99.34713117186375, isCandidate: true, isSelected: false},
+    {lat: 25.0138659, lon: 121.5428063, name: '甘味廚房', distance: 100.8828835054391, isCandidate: true, isSelected: false},
+    {lat: 25.0140722, lon: 121.5424369, name: 'Node-6073403029', distance: 101.34659407431255, isCandidate: false, isSelected: false},
+    {lat: 25.0138414, lon: 121.5428381, name: '動太郎', distance: 102.45255564524507, isCandidate: true, isSelected: false},
+    {lat: 25.0137756, lon: 121.5428787, name: '高麗元', distance: 108.38616694852914, isCandidate: true, isSelected: false},
+    {lat: 25.013791, lon: 121.5427257, name: 'Medditerranian Cusine Halal Algarian', distance: 111.55603289337395, isCandidate: true, isSelected: false},
+    {lat: 25.0138784, lon: 121.5425392, name: '強尼兄弟', distance: 111.61343023411469, isCandidate: true, isSelected: false},
+    {lat: 25.0138366, lon: 121.5425894, name: '小熊廚房', distance: 112.96682768666021, isCandidate: true, isSelected: false},
+    {lat: 25.0137416, lon: 121.54284, name: '品客自助餐', distance: 113.0411083556246, isCandidate: true, isSelected: false},
+    {lat: 25.0139366, lon: 121.5429032, name: 'Node-6073402998', distance: 113.41850853782132, isCandidate: false, isSelected: false},
+    {lat: 25.0138013, lon: 121.5426308, name: '一品快餐', distance: 114.4639255077155, isCandidate: true, isSelected: false},
+    {lat: 25.0137774, lon: 121.5429546, name: 'Node-6072807114', distance: 116.03688887772103, isCandidate: false, isSelected: false},
+    {lat: 25.0137481, lon: 121.5426924, name: '福客鐵板料李', distance: 117.24472786731731, isCandidate: true, isSelected: false},
+    {lat: 25.013702, lon: 121.5427793, name: '家常清真小吃', distance: 119.0194160876226, isCandidate: true, isSelected: false},
+    {lat: 25.0137496, lon: 121.5426096, name: 'Node-6073403026', distance: 120.59678129992085, isCandidate: false, isSelected: false},
+    {lat: 25.0139512, lon: 121.5425929, name: 'Node-6073402997', distance: 121.35041670578721, isCandidate: false, isSelected: false},
+    {lat: 25.0138989, lon: 121.5426479, name: 'Node-6073402996', distance: 122.06286514255353, isCandidate: false, isSelected: false},
+    {lat: 25.0136586, lon: 121.5428155, name: 'Node-6072807115', distance: 122.59477278824686, isCandidate: false, isSelected: false},
+    {lat: 25.0139452, lon: 121.5426053, name: '台科大第一學生餐廳', distance: 122.76687087448337, isCandidate: false, isSelected: false},
+    {lat: 25.0137165, lon: 121.5426441, name: 'Node-6073403003', distance: 123.22796538354687, isCandidate: false, isSelected: false},
+    {lat: 25.0137681, lon: 121.5427283, name: 'Node-1716390527', distance: 133.47036632208506, isCandidate: false, isSelected: false},
+    {lat: 25.0159369, lon: 121.5431584, name: '紅蔥', distance: 135.23487251719598, isCandidate: true, isSelected: false},
+    {lat: 25.0158827, lon: 121.5431012, name: 'Node-12254586200', distance: 143.57405684530804, isCandidate: false, isSelected: false},
+    {lat: 25.0158145, lon: 121.5447159, name: '波斯菊素食坊', distance: 199.8940735176899, isCandidate: true, isSelected: false},
+    {lat: 25.015779, lon: 121.5447542, name: '全家便利商店', distance: 200.6302515875451, isCandidate: true, isSelected: true},
+    {lat: 25.0158619, lon: 121.5447213, name: '我家廚房早餐店', distance: 203.5689485704395, isCandidate: true, isSelected: false},
+    {lat: 25.0158064, lon: 121.5447952, name: 'Node-9672654567', distance: 205.76351809210186, isCandidate: true, isSelected: false},
+    {lat: 25.0159864, lon: 121.5446505, name: '丼太郎', distance: 207.18261878676356, isCandidate: true, isSelected: false},
+    {lat: 25.0157721, lon: 121.5446602, name: 'Node-9672654337', distance: 207.22406366465296, isCandidate: false, isSelected: false},
+    {lat: 25.0159348, lon: 121.5447287, name: '武吉家', distance: 209.28699106165774, isCandidate: true, isSelected: false},
+    {lat: 25.0159743, lon: 121.544724, name: '男一快餐', distance: 211.78970191714936, isCandidate: true, isSelected: false},
+    {lat: 25.0159417, lon: 121.5446359, name: 'Node-9672654624', distance: 212.3661784981371, isCandidate: false, isSelected: false},
+    {lat: 25.0159712, lon: 121.5447717, name: 'Node-9672654475', distance: 215.21621764506213, isCandidate: false, isSelected: false},
+    {lat: 25.0171652, lon: 121.544737, name: '7-Eleven', distance: 315.79173808893313, isCandidate: true, isSelected: true},
+    {lat: 25.0163237, lon: 121.5457338, name: '台大後餐鹹酥雞', distance: 316.22546255983184, isCandidate: true, isSelected: false},
+    {lat: 25.0171645, lon: 121.5447116, name: 'Node-12260730636', distance: 318.3522951326181, isCandidate: true, isSelected: false},
+    {lat: 25.016283, lon: 121.5457912, name: 'Node-12260881506', distance: 323.5694367818403, isCandidate: false, isSelected: false},
+    {lat: 25.0172119, lon: 121.5448338, name: '星巴克', distance: 325.27776496605725, isCandidate: true, isSelected: false},
+    {lat: 25.0172406, lon: 121.5448831, name: 'Node-12260730633', distance: 331.1821208236249, isCandidate: false, isSelected: false},
+    {lat: 25.0172674, lon: 121.54489, name: '電腦先生', distance: 334.2421752508209, isCandidate: false, isSelected: false},
+    {lat: 25.0179497, lon: 121.5445342, name: 'Living One', distance: 385.4882558008614, isCandidate: true, isSelected: false},
+    {lat: 25.0179268, lon: 121.5445462, name: 'Node-12252667504', distance: 388.30712101879135, isCandidate: false, isSelected: false},
+    {lat: 25.0177517, lon: 121.5402417, name: '全家便利商店', distance: 446.04965925171786, isCandidate: true, isSelected: true},
+    {lat: 25.0177236, lon: 121.5402192, name: 'Node-9670471443', distance: 449.91009428859155, isCandidate: true, isSelected: false},
+    {lat: 25.0179506, lon: 121.5403434, name: '四海遊龍鍋貼專賣', distance: 456.5887425817861, isCandidate: true, isSelected: false},
+    {lat: 25.0179716, lon: 121.5403027, name: 'Node-12069285560', distance: 461.3079589295553, isCandidate: false, isSelected: false},
+    {lat: 25.0180398, lon: 121.540341, name: '樂法Le Phare', distance: 464.5775469063239, isCandidate: true, isSelected: false},
+    {lat: 25.0179969, lon: 121.5402791, name: '金盃美而美', distance: 464.6430372852131, isCandidate: true, isSelected: false},
+    {lat: 25.017949, lon: 121.5402794, name: '手作工夫茶', distance: 464.7470224063202, isCandidate: false, isSelected: false},
+    {lat: 25.0180399, lon: 121.5402777, name: '食香園', distance: 468.48794869536965, isCandidate: true, isSelected: false},
+    {lat: 25.0180794, lon: 121.5403012, name: 'Node-12069285561', distance: 470.5333801756968, isCandidate: false, isSelected: false},
+    {lat: 25.0181109, lon: 121.540341, name: '吉品勝口味', distance: 470.8824035558074, isCandidate: true, isSelected: false},
+    {lat: 25.0180881, lon: 121.5402759, name: '韓風小舖', distance: 472.8323813733491, isCandidate: true, isSelected: false},
+    {lat: 25.0181324, lon: 121.5402733, name: '御喜自助餐', distance: 476.90131288784164, isCandidate: true, isSelected: false},
+];
+
+// 路徑計算完成，但不在地圖上顯示（作為背景運算）
+
+var animationSpeed = 100;
+var isPaused = false;
+
+function playAnimation() {
+    document.getElementById('playBtn').style.display = 'none';
+    document.getElementById('pauseBtn').style.display = 'inline-block';
+
+    if (isPaused) {
+        isPaused = false;
+        animateStep();
+        return;
+    }
+
+    resetAnimation();
+    animationIndex = 0;
+    animateStep();
+}
+
+function animateStep() {
+    if (animationIndex >= traversalSteps.length || isPaused) {
+        if (animationIndex >= traversalSteps.length) {
+            document.getElementById('playBtn').style.display = 'inline-block';
+            document.getElementById('pauseBtn').style.display = 'none';
+        }
+        return;
+    }
+
+    var step = traversalSteps[animationIndex];
+    var icon = step.isSelected ? icons.match : (step.isCandidate ? icons.candidate : icons.visited);
+    var marker = L.marker([step.lat, step.lon], {icon: icon}).addTo(map);
+    marker.bindPopup('<b>' + step.name + '</b><br>距離: ' + step.distance.toFixed(1) + 'm');
+    markers.push(marker);
+
+    animationIndex++;
+    var progress = (animationIndex / traversalSteps.length) * 100;
+    document.getElementById('progressBar').style.width = progress + '%';
+    document.getElementById('stepCounter').textContent = '步驟 ' + animationIndex + ' / ' + traversalSteps.length;
+
+    animationInterval = setTimeout(animateStep, animationSpeed);
+}
+
+function pauseAnimation() {
+    isPaused = true;
+    document.getElementById('playBtn').style.display = 'inline-block';
+    document.getElementById('pauseBtn').style.display = 'none';
+    if (animationInterval) clearTimeout(animationInterval);
+}
+
+function resetAnimation() {
+    isPaused = false;
+    if (animationInterval) clearTimeout(animationInterval);
+    markers.forEach(function(m) { map.removeLayer(m); });
+    markers = [];
+    animationIndex = 0;
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('stepCounter').textContent = '步驟 0 / ' + traversalSteps.length;
+    document.getElementById('playBtn').style.display = 'inline-block';
+    document.getElementById('pauseBtn').style.display = 'none';
+}
+
+function updateSpeed(value) {
+    animationSpeed = parseInt(value);
+    document.getElementById('speedValue').textContent = value + 'ms';
+}
+
+function highlightStep(index) {
+    if (index >= traversalSteps.length) return;
+    var step = traversalSteps[index];
+    map.setView([step.lat, step.lon], 18);
+    var statusIcon = step.isSelected ? '✓' : (step.isCandidate ? '⭐' : '•');
+    L.popup()
+        .setLatLng([step.lat, step.lon])
+        .setContent('<b>' + statusIcon + ' ' + step.name + '</b><br>距離: ' + step.distance.toFixed(1) + 'm<br>位置: (' + step.lat.toFixed(6) + ', ' + step.lon.toFixed(6) + ')')
+        .openOn(map);
+}
+
+function focusOnClue(index) {
+    if (index >= clueMatches.length || !clueMatches[index]) {
+        alert('線索 #' + (index + 1) + ' 沒有匹配結果');
+        return;
+    }
+    var match = clueMatches[index];
+    map.setView([match.lat, match.lon], 18);
+
+    // 顯示詳細信息
+    var hasKeywords = match.keywords && match.keywords !== '[]' && match.keywords !== '';
+    var keywordWarning = hasKeywords ? '' : '<br><span style="color:#e74c3c;">⚠️ 此節點無關鍵字，可能是錯誤匹配！</span>';
+
+    L.popup()
+        .setLatLng([match.lat, match.lon])
+        .setContent('<div style="min-width:200px;"><b style="font-size:1.1em;">線索 #' + (index + 1) + ': ' + match.keyword + '</b><hr style="margin:5px 0;">' +
+                   '<b>節點:</b> ' + match.name + '<br>' +
+                   '<b>關鍵字:</b> ' + (hasKeywords ? match.keywords : '<span style="color:#999;">無</span>') +
+                   keywordWarning + '</div>')
+        .openOn(map);
+}
+    </script>
+</body>
+</html>
